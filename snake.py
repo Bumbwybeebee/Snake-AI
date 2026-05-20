@@ -31,7 +31,6 @@ class Snake:
         if self.hasEaten:
             #don't remove last element in position, reset eaten
             self.hasEaten = False
-            
         else:
             #remove last element in position
             self.snakeBody.pop()
