@@ -10,27 +10,27 @@ class Direction(Enum):
 class Snake:
     def __init__(self, res = 15):
         self.score = 0
-        self.hasEaten = False
+        self.has_eaten = False
         self.res = res
         
-        xPosition = res // 2
-        yPosition = res // 2
+        x_position = res // 2
+        y_position = res // 2
 
         self.direction = Direction.RIGHT
-        self.Headposition = np.array([xPosition, yPosition])
-        self.snakeBody = [self.Headposition.copy(), np.array([xPosition-1, yPosition]), np.array([xPosition-2, yPosition])]
+        self.head_position = np.array([x_position, y_position])
+        self.snake_body = [self.head_position.copy(), np.array([x_position-1, y_position]), np.array([x_position-2, y_position])]
 
     def grow(self):
         self.score += 1
-        self.hasEaten = True
+        self.has_eaten = True
         
     def move(self):
-        self.Headposition += self.direction.value
-        self.snakeBody.insert(0, self.Headposition.copy())
+        self.head_position += self.direction.value
+        self.snake_body.insert(0, self.head_position.copy())
 
-        if self.hasEaten:
+        if self.has_eaten:
             #don't remove last element in position, reset eaten
-            self.hasEaten = False
+            self.has_eaten = False
         else:
             #remove last element in position
-            self.snakeBody.pop()
+            self.snake_body.pop()

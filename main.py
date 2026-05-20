@@ -1,6 +1,10 @@
+import snake
+import ai
+
 def main():
     print("start")
-    
+    player_snake = snake.Snake()
+
     try:
         while True:
             # main loop
