@@ -1,3 +1,4 @@
+import Apple
 import numpy as np
 from enum import Enum, auto
 
@@ -8,7 +9,7 @@ class Direction(Enum):
     DOWN = (0, -1)
 
 class Snake:
-    def __init__(self, res = 15):
+    def __init__(self, res):
         self.length = 3
         self.has_eaten = False
         self.res = res
@@ -20,6 +21,7 @@ class Snake:
         self.snake_head = np.array([x_position, y_position])
         self.snake_body = [self.snake_head.copy(), np.array([x_position-1, y_position]), np.array([x_position-2, y_position])]
 
+    
     def grow(self):
         self.length += 1
         self.has_eaten = True
