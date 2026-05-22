@@ -9,7 +9,7 @@ def main():
     res = 15
     cell_size = 40
     window_size = res * cell_size
-    headless = True
+    headless = False
 
     pygame.init()
     if not headless:

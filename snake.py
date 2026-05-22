@@ -151,9 +151,13 @@ class Snake:
     
     def draw(self, screen: pygame.Surface, cell_size):
         # TODO: Alternating colored tiles
-        # for row in range(self.res):
-            # for col in range(self.res):
-                # 
+        for row in range(self.res):
+            for col in range(self.res):
+                if (row+col) % 2 == 0:
+                    pygame.draw.rect(screen, (170,215,81), (col * cell_size, row * cell_size, cell_size, cell_size))
+                else:
+                    pygame.draw.rect(screen, (162, 209, 73), (col * cell_size, row * cell_size, cell_size, cell_size))
+
         for segment_index in range(len(self.snake_body)):
             segment_type = self.find_segment_type(segment_index).value
             self.snake_sprite = pygame.image.load(segment_type[1])
