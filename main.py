@@ -56,9 +56,9 @@ def main():
 
     except KeyboardInterrupt:
         print("Program stopped by user.")
-    # finally:
-        # pygame.quit()
-        # sys.exit()
+    finally:
+        pygame.quit()
+        sys.exit()
 
 if __name__ == "__main__":
     main()
