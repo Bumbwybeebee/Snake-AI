@@ -1,4 +1,4 @@
-import Apple
+import apple
 import numpy as np
 from enum import Enum, auto
 
@@ -13,6 +13,8 @@ class Snake:
         self.length = 3
         self.has_eaten = False
         self.res = res
+        self.alive = True
+        self.has_turned = False
         
         x_position = res // 2
         y_position = res // 2
@@ -31,27 +33,26 @@ class Snake:
         self.snake_body.insert(0, self.snake_head.copy())
 
         if self.has_eaten:
-            #don't remove last element in position, reset eaten
             self.has_eaten = False
         else:
-            #remove last element in position
             self.snake_body.pop()
 
-    def rotate(self, attempted_direction):
-        if (
-            (attempted_direction == Direction.LEFT and self.direction != Direction.RIGHT)
-            or (attempted_direction == Direction.RIGHT and self.direction != Direction.LEFT)
-            or (attempted_direction == Direction.UP and self.direction != Direction.DOWN)
-            or (attempted_direction == Direction.DOWN and self.direction != Direction.UP)
-        ):
-            self.direction = attempted_direction
-    
-    def is_dead(self) -> bool:
+    def turn(self, attempted_direction):
+        if not self.has_turned:
+            if (
+                (attempted_direction == Direction.LEFT and self.direction != Direction.RIGHT)
+                or (attempted_direction == Direction.RIGHT and self.direction != Direction.LEFT)
+                or (attempted_direction == Direction.UP and self.direction != Direction.DOWN)
+                or (attempted_direction == Direction.DOWN and self.direction != Direction.UP)
+            ):
+                self.direction = attempted_direction
+                self.has_turned = True
+
+    def is_dead(self):
         if np.any(self.snake_head < 0) or np.any(self.snake_head >= self.res):
-            return True
+            self.alive = False
         
         for segment in self.snake_body[1:]:
             if np.array_equal(segment, self.snake_head):
-                return True
-            
-        return False
+                self.alive = False
+    
