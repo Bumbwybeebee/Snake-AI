@@ -1,31 +1,50 @@
 import pygame
-import apple
+#import apple
 import numpy as np
 from enum import Enum, auto
 
 class Direction(Enum):
     LEFT  = (-1,  0)
     RIGHT = ( 1,  0)
-    UP    = ( 0,  1)
-    DOWN  = ( 0, -1)
+    UP    = ( 0,  -1)
+    DOWN  = ( 0, 1)
 
 class SegmentType(Enum):
-    HEAD_UP = auto()
-    HEAD_DOWN = auto()
-    HEAD_LEFT = auto()
-    HEAD_RIGHT = auto()
+    HEAD_UP = (auto(), "sprites/head_up.png")
+    HEAD_DOWN = (auto(), "sprites/head_down.png")
+    HEAD_LEFT = (auto(), "sprites/head_left.png")
+    HEAD_RIGHT = (auto(), "sprites/head_right.png")
 
-    TAIL_UP = auto()
-    TAIL_DOWN = auto()
-    TAIL_LEFT = auto()
-    TAIL_RIGHT = auto()
+    TAIL_UP = (auto(), "sprites/tail_up.png")
+    TAIL_DOWN = (auto(), "sprites/tail_down.png")
+    TAIL_LEFT = (auto(), "sprites/tail_left.png")
+    TAIL_RIGHT = (auto(), "sprites/tail_right.png")
 
-    VERTICAL = auto()
-    HORIZONTAL = auto()
-    UP_LEFT = auto()
-    UP_RIGHT = auto()
-    DOWN_LEFT = auto()
-    DOWN_RIGHT = auto()
+    VERTICAL = (auto(), "sprites/body_vertical.png")
+    HORIZONTAL = (auto(), "sprites/body_horizontal.png")
+    UP_LEFT = (auto(), "sprites/body_topleft.png")
+    UP_RIGHT = (auto(), "sprites/body_topright.png")
+    DOWN_LEFT = (auto(), "sprites/body_bottomleft.png")
+    DOWN_RIGHT = (auto(), "sprites/body_bottomright.png")
+    
+# class SnakeParts(Enum):
+#     HEAD_UP = "sprites/head_up.png"
+#     HEAD_DOWN = "sprites/head_down.png"
+#     HEAD_LEFT = "sprites/head_left.png"
+#     HEAD_RIGHT = "sprites/head_right.png"
+
+#     TAIL_UP = "sprites/tail_up.png"
+#     TAIL_DOWN = "sprites/tail_down.png"
+#     TAIL_LEFT = "sprites/tail_left.png"
+#     TAIL_RIGHT = "sprites/tail_right.png"
+
+#     VERTICAL = "sprites/body_vertical.png"
+#     HORIZONTAL = "sprites/body_horizontal.png"
+#     UP_LEFT = "sprites/body_topleft.png"
+#     UP_RIGHT = "sprites/body_topright.png"
+#     DOWN_LEFT = "sprites/body_bottomleft.png"
+#     DOWN_RIGHT = "sprites/body_bottomright.png"
+
     
 
 class Snake:
@@ -45,14 +64,16 @@ class Snake:
 
     
     def grow(self):
-        self.length += 1
+        #self.length += 1
         self.has_eaten = True
         
     def move(self):
+        self.has_turned = False
         self.snake_head += self.direction.value
         self.snake_body.insert(0, self.snake_head.copy())
 
         if self.has_eaten:
+            self.length += 1
             self.has_eaten = False
         else:
             self.snake_body.pop()
@@ -68,15 +89,16 @@ class Snake:
                 self.direction = attempted_direction
                 self.has_turned = True
 
-    def is_dead(self):
+    def is_alive(self) -> bool:
         if np.any(self.snake_head < 0) or np.any(self.snake_head >= self.res):
             self.alive = False
-        
+        # 
         for segment in self.snake_body[1:]:
             if np.array_equal(segment, self.snake_head):
                 self.alive = False
+        return self.alive
     
-    def find_segment_type(self, segment_index) -> SegmentType:
+    def find_segment_type(self, segment_index: int) -> SegmentType:
 
         if segment_index == 0:
             head_vector = tuple(self.snake_head - self.snake_body[1])
@@ -127,5 +149,12 @@ class Snake:
         # so that there are no errors about it not always returning something
         return SegmentType.HORIZONTAL
     
-    def draw(self, screen: pygame.Surface):
-        pass
+    def draw(self, screen: pygame.Surface, cell_size):
+        # TODO: Alternating colored tiles
+        # for row in range(self.res):
+            # for col in range(self.res):
+                # 
+        for segment_index in range(len(self.snake_body)):
+            segment_type = self.find_segment_type(segment_index).value
+            self.snake_sprite = pygame.image.load(segment_type[1])
+            screen.blit(self.snake_sprite, (self.snake_body[segment_index][0] * cell_size, self.snake_body[segment_index][1] * cell_size))
