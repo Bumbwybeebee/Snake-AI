@@ -3,13 +3,16 @@ import numpy as np
 import snake
 import pygame
 
+
+
 class Apple:
-    def __init__(self, res):
+    def __init__(self, res, headless: bool):
         self.res = res
-        self.x_position = 10#random.randint(0, self.res-1)
-        self.y_position = 8#random.randint(0, self.res-1)
+        self.x_position = 10
+        self.y_position = 8
         self.apple_pos = np.array([self.x_position, self.y_position])
-        self.apple_sprite = pygame.image.load("sprites/apple.png").convert_alpha()
+        if not headless:
+            self.apple_sprite = pygame.image.load("sprites/apple.png").convert_alpha()
 
     def generate(self, snake: snake.Snake):
         while True:
