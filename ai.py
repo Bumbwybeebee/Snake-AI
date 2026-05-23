@@ -36,14 +36,14 @@ class Linear_QNet(nn.Module):
 
         return self.linear2(x) # self.linear2(x) takes the processed info from the neuron layer and outputs the final decision (probabilities, whichever number in this array is the highest is the action that it takes)
 
-    def save(self, file_name='model..pt'):
+    def save(self, checkpoint, file_name='model..pth'):
         model_folder_path = './model'
 
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
         file_path = os.path.join(model_folder_path, file_name)
 
-        torch.save(self.state_dict(), file_path)
+        torch.save(checkpoint, file_path)
         print(f"--> Brain saved successfully to {file_path}")
 
     

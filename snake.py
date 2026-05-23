@@ -29,7 +29,7 @@ class SegmentType(Enum):
 
 class Snake:
     def __init__(self, res):
-        self.length = 3
+        self.length = 4
         self.has_eaten = False
         self.res = res
         self.alive = True
@@ -40,7 +40,7 @@ class Snake:
 
         self.direction = Direction.RIGHT
         self.snake_head = np.array([x_position, y_position])
-        self.snake_body = [self.snake_head.copy(), np.array([x_position-1, y_position]), np.array([x_position-2, y_position])]
+        self.snake_body = [self.snake_head.copy(), np.array([x_position-1, y_position]), np.array([x_position-2, y_position]), np.array([x_position-3, y_position])]
 
     
     def grow(self):
