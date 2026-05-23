@@ -9,6 +9,7 @@ from collections import deque
 
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
+        # https://share.google/aimode/FilcOzYEU5fCIMwMp
         """
         input_size is how many inputs it takes (ex: position of head, position of apple, etc)
         hidden_size is how many neurons process these inputs (the middle layer)
@@ -35,7 +36,7 @@ class Linear_QNet(nn.Module):
 
         return self.linear2(x) # self.linear2(x) takes the processed info from the neuron layer and outputs the final decision (probabilities, whichever number in this array is the highest is the action that it takes)
 
-    def save(self, file_name='model..pth'):
+    def save(self, file_name='model..pt'):
         model_folder_path = './model'
 
         if not os.path.exists(model_folder_path):

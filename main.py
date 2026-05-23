@@ -26,7 +26,7 @@ def main():
 
     #AI stuff
     model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3)
-    saved_model_path = './model/best_model.pth'
+    saved_model_path = './model/best_model.pt'
     if os.path.exists(saved_model_path):
         model.load_state_dict(torch.load(saved_model_path))
         print("loaded saved model")
@@ -52,7 +52,7 @@ def main():
             else:
                 state_tensor = torch.tensor(old_state, dtype = torch.float)
                 prediction = model(state_tensor)
-                final_move[torch.argmax(prediction).item()] = 1
+                final_move[int(torch.argmax(prediction).item())] = 1
 
             ai_move(player_snake=player_snake, final_move=final_move)
             player_snake.move()
@@ -77,7 +77,7 @@ def main():
             if dead:
                 if player_snake.length > high_score:
                     high_score = player_snake.length
-                    model.save(file_name='best_model.pth')
+                    model.save(file_name='best_model.pt')
                 #resets board
                 player_snake = snake.Snake(res)
                 player_apple.generate(player_snake)
@@ -96,7 +96,17 @@ def main():
                 player_apple.draw(screen, cell_size)
     
                 pygame.display.flip()
-                clock.tick(100)
+                clock.tick(10)
+            else:
+                #AI input here
+                pass
+            player_snake.move()
+            running = player_snake.is_alive()
+
+            if np.array_equal(player_snake.snake_head, player_apple.apple_pos):
+                player_snake.grow()
+                player_apple.generate(player_snake)
+
     except KeyboardInterrupt:
         print("Program stopped by user.")
     except Exception as e:
@@ -108,7 +118,7 @@ def main():
 
 
 
-def ai_move(player_snake : snake, final_move):
+def ai_move(player_snake : snake.Snake, final_move):
     current_dir = player_snake.direction.value
     v = np.array(current_dir)
     # print(current_dir)
@@ -121,7 +131,7 @@ def ai_move(player_snake : snake, final_move):
     else: #ai turns right
         player_snake.turn(snake.Direction((int(-v[1]), int(v[0]))))#should output the direction snake is moving rotated by 90 degrees clockwise
 
-def get_game_state(player_snake : snake, player_apple : apple, res):
+def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
     head = player_snake.snake_head
     apple_pos = player_apple.apple_pos
 
@@ -132,10 +142,10 @@ def get_game_state(player_snake : snake, player_apple : apple, res):
     p_d = head + np.array([0, 1])
 
     #bool values for which direction is the snake currently going, formatted for input array
-    dir_l = np.array_equal(player_snake.direction, [-1, 0])
-    dir_r = np.array_equal(player_snake.direction, [1, 0])
-    dir_u = np.array_equal(player_snake.direction, [0, -1])
-    dir_d = np.array_equal(player_snake.direction, [0, 1])
+    dir_l = np.array_equal(player_snake.direction.value, [-1, 0])
+    dir_r = np.array_equal(player_snake.direction.value, [1, 0])
+    dir_u = np.array_equal(player_snake.direction.value, [0, -1])
+    dir_d = np.array_equal(player_snake.direction.value, [0, 1])
 
 
     #checks if the snake is in danger
