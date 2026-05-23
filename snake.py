@@ -10,23 +10,23 @@ class Direction(Enum):
     DOWN  = ( 0,  1)
 
 class SegmentType(Enum):
-    HEAD_UP = ("sprites/head_up.png")
-    HEAD_DOWN = ("sprites/head_down.png")
-    HEAD_LEFT = ("sprites/head_left.png")
-    HEAD_RIGHT = ("sprites/head_right.png")
+    HEAD_UP = "sprites/head_up.png"
+    HEAD_DOWN = "sprites/head_down.png"
+    HEAD_LEFT = "sprites/head_left.png"
+    HEAD_RIGHT = "sprites/head_right.png"
 
-    TAIL_UP = ("sprites/tail_up.png")
-    TAIL_DOWN = ("sprites/tail_down.png")
-    TAIL_LEFT = ("sprites/tail_left.png")
-    TAIL_RIGHT = ("sprites/tail_right.png")
+    TAIL_UP = "sprites/tail_up.png"
+    TAIL_DOWN = "sprites/tail_down.png"
+    TAIL_LEFT = "sprites/tail_left.png"
+    TAIL_RIGHT = "sprites/tail_right.png"
 
-    VERTICAL = ("sprites/body_vertical.png")
-    HORIZONTAL = ("sprites/body_horizontal.png")
-    UP_LEFT = ("sprites/body_topleft.png")
-    UP_RIGHT = ("sprites/body_topright.png")
-    DOWN_LEFT = ("sprites/body_bottomleft.png")
-    DOWN_RIGHT = ("sprites/body_bottomright.png")
-    
+    VERTICAL = "sprites/body_vertical.png"
+    HORIZONTAL = "sprites/body_horizontal.png"
+    UP_LEFT = "sprites/body_topleft.png"
+    UP_RIGHT = "sprites/body_topright.png"
+    DOWN_LEFT = "sprites/body_bottomleft.png"
+    DOWN_RIGHT = "sprites/body_bottomright.png"
+
 class Snake:
     def __init__(self, res):
         self.length = 3
