@@ -97,7 +97,7 @@ def main():
             agent.remember(old_state, final_move, reward, new_state, dead)
 
             if dead:
-                epsilon = max(5, 80 - games_played * 0.005)
+                epsilon = max(0, 80 - games_played * 0.005)
                 games_played += 1
                 if player_snake.length > high_score:
                     high_score = player_snake.length
@@ -115,7 +115,7 @@ def main():
                
                 agent.train_long_memory()
 
-                print(f"Game {games_played} Over. Epsilon: {epsilon}")
+                print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
             
             if display:
                 for event in pygame.event.get():
