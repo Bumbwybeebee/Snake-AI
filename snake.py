@@ -6,47 +6,27 @@ from enum import Enum, auto
 class Direction(Enum):
     LEFT  = (-1,  0)
     RIGHT = ( 1,  0)
-    UP    = ( 0,  -1)
-    DOWN  = ( 0, 1)
+    UP    = ( 0, -1)
+    DOWN  = ( 0,  1)
 
 class SegmentType(Enum):
-    HEAD_UP = (auto(), "sprites/head_up.png")
-    HEAD_DOWN = (auto(), "sprites/head_down.png")
-    HEAD_LEFT = (auto(), "sprites/head_left.png")
-    HEAD_RIGHT = (auto(), "sprites/head_right.png")
+    HEAD_UP = ("sprites/head_up.png")
+    HEAD_DOWN = ("sprites/head_down.png")
+    HEAD_LEFT = ("sprites/head_left.png")
+    HEAD_RIGHT = ("sprites/head_right.png")
 
-    TAIL_UP = (auto(), "sprites/tail_up.png")
-    TAIL_DOWN = (auto(), "sprites/tail_down.png")
-    TAIL_LEFT = (auto(), "sprites/tail_left.png")
-    TAIL_RIGHT = (auto(), "sprites/tail_right.png")
+    TAIL_UP = ("sprites/tail_up.png")
+    TAIL_DOWN = ("sprites/tail_down.png")
+    TAIL_LEFT = ("sprites/tail_left.png")
+    TAIL_RIGHT = ("sprites/tail_right.png")
 
-    VERTICAL = (auto(), "sprites/body_vertical.png")
-    HORIZONTAL = (auto(), "sprites/body_horizontal.png")
-    UP_LEFT = (auto(), "sprites/body_topleft.png")
-    UP_RIGHT = (auto(), "sprites/body_topright.png")
-    DOWN_LEFT = (auto(), "sprites/body_bottomleft.png")
-    DOWN_RIGHT = (auto(), "sprites/body_bottomright.png")
+    VERTICAL = ("sprites/body_vertical.png")
+    HORIZONTAL = ("sprites/body_horizontal.png")
+    UP_LEFT = ("sprites/body_topleft.png")
+    UP_RIGHT = ("sprites/body_topright.png")
+    DOWN_LEFT = ("sprites/body_bottomleft.png")
+    DOWN_RIGHT = ("sprites/body_bottomright.png")
     
-# class SnakeParts(Enum):
-#     HEAD_UP = "sprites/head_up.png"
-#     HEAD_DOWN = "sprites/head_down.png"
-#     HEAD_LEFT = "sprites/head_left.png"
-#     HEAD_RIGHT = "sprites/head_right.png"
-
-#     TAIL_UP = "sprites/tail_up.png"
-#     TAIL_DOWN = "sprites/tail_down.png"
-#     TAIL_LEFT = "sprites/tail_left.png"
-#     TAIL_RIGHT = "sprites/tail_right.png"
-
-#     VERTICAL = "sprites/body_vertical.png"
-#     HORIZONTAL = "sprites/body_horizontal.png"
-#     UP_LEFT = "sprites/body_topleft.png"
-#     UP_RIGHT = "sprites/body_topright.png"
-#     DOWN_LEFT = "sprites/body_bottomleft.png"
-#     DOWN_RIGHT = "sprites/body_bottomright.png"
-
-    
-
 class Snake:
     def __init__(self, res):
         self.length = 3
@@ -160,5 +140,5 @@ class Snake:
 
         for segment_index in range(len(self.snake_body)):
             segment_type = self.find_segment_type(segment_index).value
-            self.snake_sprite = pygame.image.load(segment_type[1])
+            self.snake_sprite = pygame.image.load(segment_type)
             screen.blit(self.snake_sprite, (self.snake_body[segment_index][0] * cell_size, self.snake_body[segment_index][1] * cell_size))
