@@ -25,34 +25,35 @@ def main():
 
     try:
         while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                        player_snake.turn(snake.Direction.LEFT)
-                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                        player_snake.turn(snake.Direction.RIGHT)
-                    elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                        player_snake.turn(snake.Direction.UP)
-                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                        player_snake.turn(snake.Direction.DOWN)
+            if not headless:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    if event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                            player_snake.turn(snake.Direction.LEFT)
+                        elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                            player_snake.turn(snake.Direction.RIGHT)
+                        elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                            player_snake.turn(snake.Direction.UP)
+                        elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                            player_snake.turn(snake.Direction.DOWN)
 
+                screen.fill((255, 255, 255))
+                player_snake.draw(screen, cell_size)
+                player_apple.draw(screen, cell_size)
+    
+                pygame.display.flip()
+                clock.tick(5)
+            else:
+                #AI input here
+                pass
             player_snake.move()
             running = player_snake.is_alive()
 
             if np.array_equal(player_snake.snake_head, player_apple.apple_pos):
                 player_snake.grow()
                 player_apple.generate(player_snake)
-
-            if not headless:
-                screen.fill((255, 255, 255))
-                # TODO: Implement drawing methods for snake and apple
-                player_snake.draw(screen, cell_size)
-                player_apple.draw(screen, cell_size)
-    
-                pygame.display.flip()
-            clock.tick(5)
 
     except KeyboardInterrupt:
         print("Program stopped by user.")
