@@ -6,12 +6,12 @@ import pygame
 
 
 class Apple:
-    def __init__(self, res, headless: bool):
+    def __init__(self, res, display: bool):
         self.res = res
         self.x_position = 10
         self.y_position = 8
         self.apple_pos = np.array([self.x_position, self.y_position])
-        if not headless:
+        if display:
             self.apple_sprite = pygame.image.load("sprites/apple.png").convert_alpha()
 
     def generate(self, snake: snake.Snake):
