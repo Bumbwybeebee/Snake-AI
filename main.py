@@ -8,16 +8,25 @@ import torch
 import random
 import os
 
+# Set device for computation
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+
 def main():
     res = 15
     cell_size = 40
     window_size = res * cell_size
-    display = False
+    display = True
     starvation = 0
 
     pygame.init()
     #if display:
     screen = pygame.display.set_mode((window_size, window_size))
+    background = pygame.Surface((window_size, window_size))
+    for row in range(res):
+        for col in range(res):
+            color = (170,215,81) if (row+col) % 2 == 0 else (162,209,73)
+            pygame.draw.rect(background, color, (col*cell_size, row*cell_size, cell_size, cell_size))
     pygame.display.set_caption("Snake")
 
     clock = pygame.time.Clock()
@@ -26,13 +35,14 @@ def main():
     player_apple = apple.Apple(res, True)
 
     #AI stuff
-    model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
     epsilon = 80 #increases variability at the beginning
     games_played = 0
     high_score = 0
     if os.path.exists(saved_model_path):
-        checkpoint = torch.load(saved_model_path)
+        checkpoint = torch.load(saved_model_path, map_location=device)
         model.load_state_dict(checkpoint['state'])
         games_played = checkpoint['games_played']
         high_score = checkpoint['high_score']
@@ -52,6 +62,9 @@ def main():
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_LEFT or event.key == pygame.K_SPACE:
                         display = not display 
+                if event.type == pygame.QUIT:
+                    running = False
+                    
             #AI input here
             #stores old state for comparison
             old_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=res)
@@ -61,9 +74,9 @@ def main():
                 final_move[random.randint(0,2)] = 1
             else:
                 with torch.no_grad():
-                    state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0)
+                    state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0).to(device)
                     prediction = model(state_tensor)
-                    final_move[torch.argmax(prediction).item()] = 1
+                    final_move[int(torch.argmax(prediction).item())] = 1
 
             ai_move(player_snake=player_snake, final_move=final_move)
             old_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
@@ -93,7 +106,8 @@ def main():
             
             new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=res)
 
-            trainer.train_step(old_state, final_move, reward, new_state, dead)
+            if games_played % 4 == 0:
+                trainer.train_step(old_state, final_move, reward, new_state, dead)
             agent.remember(old_state, final_move, reward, new_state, dead)
 
             if dead:
@@ -118,21 +132,26 @@ def main():
                 print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
             
             if display:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        running = False
                 screen.fill((255, 255, 255))
-                player_snake.draw(screen, cell_size)
+                player_snake.draw(screen, cell_size, background)
                 player_apple.draw(screen, cell_size)
     
                 pygame.display.flip()
                 clock.tick(1000)
+
     except KeyboardInterrupt:
         print("Program stopped by user.")
     except Exception as e:
         import traceback
         traceback.print_exc()
     finally:
+        checkpoint = {
+                'state': model.state_dict(),
+                'games_played': games_played,
+                'high_score': high_score,
+                'epsilon': epsilon
+            }
+        model.save(checkpoint, file_name='best_model.pth')
         pygame.quit()
         sys.exit()
 

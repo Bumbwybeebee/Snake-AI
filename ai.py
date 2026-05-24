@@ -7,9 +7,10 @@ import random
 import os
 from collections import deque
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
-        # https://share.google/aimode/FilcOzYEU5fCIMwMp
         """
         input_size is how many inputs it takes (ex: position of head, position of apple, etc)
         hidden_size is how many neurons process these inputs (the middle layer)
@@ -36,7 +37,7 @@ class Linear_QNet(nn.Module):
 
         return self.linear2(x) # self.linear2(x) takes the processed info from the neuron layer and outputs the final decision (probabilities, whichever number in this array is the highest is the action that it takes)
 
-    def save(self, checkpoint, file_name='model..pth'):
+    def save(self, checkpoint, file_name='model.pth'):
         model_folder_path = './model'
 
         if not os.path.exists(model_folder_path):
@@ -57,10 +58,10 @@ class QTrainer:
     #Learning
     def train_step(self, state, action, reward, next_state, dead):
         #model prediction
-        state = torch.tensor(state, dtype=torch.float)
-        next_state = torch.tensor(next_state, dtype=torch.float)
-        action = torch.tensor(action, dtype=torch.long)
-        reward = torch.tensor(reward, dtype=torch.float)
+        state = torch.tensor(state, dtype=torch.float, device=device)
+        next_state = torch.tensor(next_state, dtype=torch.float, device=device)
+        action = torch.tensor(action, dtype=torch.long, device=device)
+        reward = torch.tensor(reward, dtype=torch.float, device=device)
 
         #turning 1d list into 2d array
         if len(state.shape) == 1:
@@ -73,14 +74,12 @@ class QTrainer:
         pred = self.model(state) #takes in input vector and using current weights and biases calculates best move. I think
 
         target = pred.clone() #creates copy of prediction variable
-        for i in range(len(dead)):
-            Q_new = reward[i]
-            if not dead[i]:
-                Q_new = reward[i] + self.gamma * torch.max(self.model(next_state[i])) #if game hasn't ended, look into the future and see what happens next. self.gamma discounts future rewards by just a bit
-
-            #finds actual action took, and replaces it's expected value with actual value
-            action_i = torch.argmax(action[i]).item() 
-            target[i][action_i] = Q_new
+        with torch.no_grad():
+            next_q = self.model(next_state).max(dim=1).values
+        dead_tensor = torch.tensor(dead, dtype=torch.bool, device=device)
+        Q_new = reward + self.gamma * next_q * (~dead_tensor)
+        action_indices = torch.argmax(action, dim=1)
+        target[torch.arange(len(dead_tensor), device=device), action_indices] = Q_new
 
         #adjusting weights and biases
         self.optimizer.zero_grad() #clears previous math
@@ -93,7 +92,7 @@ class Agent:
         self.model = model
         self.trainer = trainer
         self.memory = deque(maxlen=100_000)
-        self.batch_size = 64
+        self.batch_size = 512
     
     def remember(self, state, action, reward, next_state, dead):
         self.memory.append((state, action, reward, next_state, dead))
