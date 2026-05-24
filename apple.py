@@ -15,13 +15,12 @@ class Apple:
             self.apple_sprite = pygame.image.load("sprites/apple.png").convert_alpha()
 
     def generate(self, snake: snake.Snake):
-        while True:
-            self.x_position = random.randint(0, snake.res-1)
-            self.y_position = random.randint(0, snake.res-1)
-            potential_apple_pos = np.array([self.x_position, self.y_position])
-            if not any(np.array_equal(potential_apple_pos, segment) for segment in snake.snake_body):
-                break
-        self.apple_pos = potential_apple_pos
+        all_positions = set((x, y) for x in range(self.res) for y in range(self.res))
+        for segment in snake.snake_body:
+            if tuple(segment) in all_positions:
+                all_positions.remove(tuple(segment))
+        self.x_position, self.y_position = random.choice(list(all_positions)) if all_positions else (0, 0)
+        self.apple_pos = np.array([self.x_position, self.y_position])
         
     def draw(self, screen: pygame.Surface, size):
         screen.blit(self.apple_sprite, (self.x_position * size, self.y_position * size))
