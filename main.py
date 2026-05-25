@@ -37,7 +37,12 @@ def main():
     player_apple = apple.Apple(RES, DISPLAY)
 
     #AI stuff
+<<<<<<< HEAD
     model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
+=======
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = ai.Linear_QNet(input_size=15, hidden_size=256, output_size=3).to(device)
+>>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
     saved_model_path = './model/best_model.pth'
     epsilon = 80 #increases variability at the beginning
     games_played = 0
@@ -100,21 +105,29 @@ def main():
             dead = not player_snake.is_alive()
 
             if dead:
+<<<<<<< HEAD
                 reward = -50
+=======
+                reward = -15
+>>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
                 starvation = 0
             elif np.array_equal(player_snake.snake_head, player_apple.apple_pos):
                 player_snake.grow()
                 player_apple.generate(player_snake)
-                reward = 100
+                reward = 10
                 starvation = 0
             else:
                 if new_dist < old_dist:
-                    starvation += .1
+                    starvation += 1
                     reward = 1 #to encourage it to move towards apple
-
+                elif starvation > (res * res):
+                    dead = True
+                    reward = -30
                 else:
-                    starvation += .1
-                    reward = -2 - starvation
+                    starvation += 1
+                    reward = -1
+                
+                reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, res)/(res * res)
             
             new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
 
@@ -123,6 +136,7 @@ def main():
                     trainer.train_step(old_state, final_move, reward, new_state, dead)
                 agent.remember(old_state, final_move, reward, new_state, dead)
 
+<<<<<<< HEAD
                 if dead:
                     epsilon = max(0, 80 - games_played * 0.005)
                     games_played += 1
@@ -145,6 +159,23 @@ def main():
                     print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
             if not AI_PLAYING and dead:
                 player_snake = snake.Snake(RES)
+=======
+            if dead:
+                epsilon = max(int(starvation * .1), 80 - games_played * 0.005)
+                games_played += 1
+                if player_snake.length > high_score:
+                    high_score = player_snake.length
+                    
+                    checkpoint = {
+                        'state': model.state_dict(),
+                        'games_played': games_played,
+                        'high_score': high_score,
+                        'epsilon': epsilon
+                    }
+                    model.save(checkpoint, file_name='best_model.pth')
+                #resets board
+                player_snake = snake.Snake(res)
+>>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
                 player_apple.generate(player_snake)
             
             if DISPLAY:
@@ -172,6 +203,22 @@ def main():
         sys.exit()
 
 
+def flood_fill_count(start, snake_body, res):
+        visited = set()
+        stack = [tuple(start)]
+        body_set = {tuple(s) for s in snake_body[1:]}
+        while stack:
+            pos = stack.pop()
+            if pos in visited:
+                continue
+            x, y = pos
+            if x < 0 or x >= res or y < 0 or y >= res:
+                continue
+            if pos in body_set:
+                continue
+            visited.add(pos)
+            stack.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
+        return len(visited)
 
 def ai_move(player_snake : snake.Snake, final_move):
     current_dir = player_snake.direction.value
@@ -201,6 +248,9 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
     dir_r = player_snake.direction == snake.Direction.RIGHT
     dir_u = player_snake.direction == snake.Direction.UP
     dir_d = player_snake.direction == snake.Direction.DOWN
+    
+    #checks how open the map is to prevent trapping itself
+    
 
 
     #checks if the snake is in danger
@@ -213,8 +263,16 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
             if np.array_equal(segment, pt):
                 return True
         return False
+    
+    
+    
+    space_l = flood_fill_count(p_l, player_snake.snake_body, res) / (res * res)
+    space_r = flood_fill_count(p_r, player_snake.snake_body, res) / (res * res)
+    space_u = flood_fill_count(p_u, player_snake.snake_body, res) / (res * res)
+    space_d = flood_fill_count(p_d, player_snake.snake_body, res) / (res * res)
+
     state = [
-        #danger values
+        #danger values 
         #going straight is deadly
         (dir_r and danger(p_r)) or (dir_l and danger(p_l)) or (dir_u and danger(p_u)) or (dir_d and danger(p_d)),
         #turning left is deadly
@@ -224,14 +282,20 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
 
         #current direction
         dir_l, dir_r, dir_u, dir_d,
-
+ 
         #food location relative to head position
         apple_pos[0] < head[0],  # Food is Left
         apple_pos[0] > head[0],  # Food is Right
         apple_pos[1] < head[1],  # Food is Up
-        apple_pos[1] > head[1]   # Food is Down
+        apple_pos[1] > head[1],   # Food is Down
+        
+        #free space when going in the different directions
+        space_l,
+        space_r,
+        space_u,
+        space_d
     ]
-    return [int(x) for x in state]
+    return [int(x) for x in state[:-4]] + [ i for i in state[-4:]]
 
 if __name__ == "__main__":
     main()
