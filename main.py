@@ -37,7 +37,7 @@ def main():
     player_apple = apple.Apple(RES, DISPLAY)
 
     #AI stuff
-    model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
+    # model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ai.Linear_QNet(input_size=15, hidden_size=256, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
@@ -113,14 +113,14 @@ def main():
                 if new_dist < old_dist:
                     starvation += 1
                     reward = 1 #to encourage it to move towards apple
-                elif starvation > (res * res):
+                elif starvation > (RES * RES):
                     dead = True
                     reward = -30
                 else:
                     starvation += 1
                     reward = -1
                 
-                reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, res)/(res * res)
+                reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, RES)/(RES * RES)
             
             new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
 
