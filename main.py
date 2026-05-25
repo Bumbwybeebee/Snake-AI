@@ -9,6 +9,8 @@ import numpy as np
 import torch
 import random
 import os
+import json
+from collections import deque
 
 # Set device for computation
 device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
@@ -41,6 +43,7 @@ def main():
     #device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
     model = ai.Conv_QNet(res=RES, flat_input_size=9, hidden_size=256, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
+    stats_path = './model/stats.json'
     epsilon = 80 #increases variability at the beginning
     games_played = 0
     high_score = 0
@@ -53,7 +56,16 @@ def main():
         print("loaded saved model")
     else:
         print("no saved model found")
-    trainer = ai.QTrainerCNN(model=model, lr=0.001, gamma=0.9)
+    os.makedirs('./model', exist_ok=True)
+    if os.path.exists(stats_path):
+        with open(stats_path, 'r') as f:
+            stats = json.load(f)
+        avg_score = stats['avg_score']
+        recent_scores = deque(stats['recent_scores'], maxlen=2000)
+    else:
+        avg_score = 0
+        recent_scores = deque(maxlen=2000)
+    trainer = ai.QTrainerCNN(model=model, lr=0.001, gamma=0.99)
     agent = ai.AgentCNN(model=model, trainer=trainer)
     running = True
 
@@ -133,8 +145,17 @@ def main():
                 agent.remember(old_grid, old_flat, final_move, reward, new_grid, new_flat, dead)
 
                 if dead:
-                    epsilon = max(0, 80 - games_played * 0.005)
+                    epsilon = max(0, 80 - games_played * 0.05)
                     games_played += 1
+                    avg_score = (avg_score + (player_snake.length - avg_score)/games_played)
+                    recent_scores.append(player_snake.length)
+                    recent_avg = sum(recent_scores) / len(recent_scores) if recent_scores else 0
+                    stats = {
+                        'avg_score': avg_score,
+                        'recent_scores': list(recent_scores)
+                    }
+                    with open(stats_path, 'w') as f:
+                        json.dump(stats, f)
                     if player_snake.length > high_score:
                         high_score = player_snake.length
                         
@@ -151,7 +172,7 @@ def main():
                 
                     agent.train_long_memory()
 
-                    print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
+                    print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score} Average Score: {avg_score} Recent Average: {recent_avg}")
             if not AI_PLAYING and dead:
                 player_snake = snake.Snake(RES)
                 player_apple.generate(player_snake)
