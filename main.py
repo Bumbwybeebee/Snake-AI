@@ -160,7 +160,7 @@ def main():
         import traceback
         traceback.print_exc()
     finally:
-        if not AI_PLAYING:
+        if AI_PLAYING:
             checkpoint = {
                     'state': model.state_dict(),
                     'games_played': games_played,
