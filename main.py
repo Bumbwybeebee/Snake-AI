@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import pygame
 import sys
 import snake
@@ -13,29 +15,28 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 def main():
-    res = 15
-    cell_size = 40
-    window_size = res * cell_size
-    display = True
+    RES = 15
+    CELL_SIZE = 40
+    WINDOW_SIZE = RES * CELL_SIZE
+    DISPLAY = True
+    AI_PLAYING = False
     starvation = 0
 
     pygame.init()
-    #if display:
-    screen = pygame.display.set_mode((window_size, window_size))
-    background = pygame.Surface((window_size, window_size))
-    for row in range(res):
-        for col in range(res):
+    screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+    background = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
+    for row in range(RES):
+        for col in range(RES):
             color = (170,215,81) if (row+col) % 2 == 0 else (162,209,73)
-            pygame.draw.rect(background, color, (col*cell_size, row*cell_size, cell_size, cell_size))
+            pygame.draw.rect(background, color, (col*CELL_SIZE, row*CELL_SIZE, CELL_SIZE, CELL_SIZE))
     pygame.display.set_caption("Snake")
 
     clock = pygame.time.Clock()
     print("start")
-    player_snake = snake.Snake(res)
-    player_apple = apple.Apple(res, True)
+    player_snake = snake.Snake(RES)
+    player_apple = apple.Apple(RES, DISPLAY)
 
     #AI stuff
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
     epsilon = 80 #increases variability at the beginning
@@ -60,25 +61,36 @@ def main():
         while running: 
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_LEFT or event.key == pygame.K_SPACE:
-                        display = not display 
+                    if event.key == pygame.K_SPACE:
+                        DISPLAY = not DISPLAY 
+                    if not AI_PLAYING:
+                        if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                            player_snake.turn(snake.Direction.LEFT)
+                        elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                            player_snake.turn(snake.Direction.RIGHT)
+                        elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                            player_snake.turn(snake.Direction.UP)
+                        elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                            player_snake.turn(snake.Direction.DOWN)
                 if event.type == pygame.QUIT:
                     running = False
                     
             #AI input here
             #stores old state for comparison
-            old_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=res)
+            old_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
             #choosing action
-            final_move = [0,0,0]
-            if random.randint(0, 200) < epsilon:
-                final_move[random.randint(0,2)] = 1
-            else:
-                with torch.no_grad():
-                    state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0).to(device)
-                    prediction = model(state_tensor)
-                    final_move[int(torch.argmax(prediction).item())] = 1
+            if AI_PLAYING:
+                final_move = [0,0,0]
+                if random.randint(0, 200) < epsilon:
+                    final_move[random.randint(0,2)] = 1
+                else:
+                    with torch.no_grad():
+                        state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0).to(device)
+                        prediction = model(state_tensor)
+                        final_move[int(torch.argmax(prediction).item())] = 1
+    
+                ai_move(player_snake=player_snake, final_move=final_move)
 
-            ai_move(player_snake=player_snake, final_move=final_move)
             old_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
 
             player_snake.move()
@@ -88,7 +100,7 @@ def main():
             dead = not player_snake.is_alive()
 
             if dead:
-                reward = -5
+                reward = -50
                 starvation = 0
             elif np.array_equal(player_snake.snake_head, player_apple.apple_pos):
                 player_snake.grow()
@@ -104,40 +116,43 @@ def main():
                     starvation += .1
                     reward = -2 - starvation
             
-            new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=res)
+            new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
 
-            if games_played % 4 == 0:
-                trainer.train_step(old_state, final_move, reward, new_state, dead)
-            agent.remember(old_state, final_move, reward, new_state, dead)
+            if AI_PLAYING:
+                if games_played % 4 == 0:
+                    trainer.train_step(old_state, final_move, reward, new_state, dead)
+                agent.remember(old_state, final_move, reward, new_state, dead)
 
-            if dead:
-                epsilon = max(0, 80 - games_played * 0.005)
-                games_played += 1
-                if player_snake.length > high_score:
-                    high_score = player_snake.length
-                    
-                    checkpoint = {
-                        'state': model.state_dict(),
-                        'games_played': games_played,
-                        'high_score': high_score,
-                        'epsilon': epsilon
-                    }
-                    model.save(checkpoint, file_name='best_model.pth')
-                #resets board
-                player_snake = snake.Snake(res)
+                if dead:
+                    epsilon = max(0, 80 - games_played * 0.005)
+                    games_played += 1
+                    if player_snake.length > high_score:
+                        high_score = player_snake.length
+                        
+                        checkpoint = {
+                            'state': model.state_dict(),
+                            'games_played': games_played,
+                            'high_score': high_score,
+                            'epsilon': epsilon
+                        }
+                        model.save(checkpoint, file_name='best_model.pth')
+                    #resets board
+                    player_snake = snake.Snake(RES)
+                    player_apple.generate(player_snake)
+                
+                    agent.train_long_memory()
+
+                    print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
+            if not AI_PLAYING and dead:
+                player_snake = snake.Snake(RES)
                 player_apple.generate(player_snake)
-               
-                agent.train_long_memory()
-
-                print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
             
-            if display:
-                screen.fill((255, 255, 255))
-                player_snake.draw(screen, cell_size, background)
-                player_apple.draw(screen, cell_size)
+            if DISPLAY:
+                player_snake.draw(screen, CELL_SIZE, background)
+                player_apple.draw(screen, CELL_SIZE)
     
                 pygame.display.flip()
-                clock.tick(1000)
+                clock.tick(1000 if AI_PLAYING else 10)
 
     except KeyboardInterrupt:
         print("Program stopped by user.")
@@ -145,13 +160,14 @@ def main():
         import traceback
         traceback.print_exc()
     finally:
-        checkpoint = {
-                'state': model.state_dict(),
-                'games_played': games_played,
-                'high_score': high_score,
-                'epsilon': epsilon
-            }
-        model.save(checkpoint, file_name='best_model.pth')
+        if not AI_PLAYING:
+            checkpoint = {
+                    'state': model.state_dict(),
+                    'games_played': games_played,
+                    'high_score': high_score,
+                    'epsilon': epsilon
+                }
+            model.save(checkpoint, file_name='best_model.pth')
         pygame.quit()
         sys.exit()
 
