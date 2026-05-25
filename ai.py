@@ -7,7 +7,7 @@ import random
 import os
 from collections import deque
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
 
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -87,6 +87,49 @@ class QTrainer:
         loss.backward()
         self.optimizer.step()
 
+class QTrainerCNN:
+    def __init__(self, model, lr, gamma):
+        self.model = model
+        self.optimizer = optim.Adam(model.parameters(), lr=lr)
+        self.criterion = nn.MSELoss()
+        self.gamma = gamma
+    #Learning
+    def train_step(self, grids, flats, action, reward, next_grids, next_flats, dead):
+        #model prediction
+        grids = torch.tensor(np.array(grids), dtype=torch.float, device=device)
+        flats = torch.tensor(np.array(flats), dtype=torch.float, device=device)
+        next_grids = torch.tensor(np.array(next_grids), dtype=torch.float, device=device)
+        next_flats = torch.tensor(np.array(next_flats), dtype=torch.float, device=device)
+        action = torch.tensor(np.array(action), dtype=torch.long, device=device)
+        reward = torch.tensor(np.array(reward), dtype=torch.float, device=device)
+
+        if grids.dim() == 3:
+            grids = grids.unsqueeze(0)
+            next_grids = next_grids.unsqueeze(0)
+            flats = flats.unsqueeze(0)
+            next_flats = next_flats.unsqueeze(0)
+            action = action.unsqueeze(0)
+            reward = reward.unsqueeze(0)
+            dead = (dead,)
+
+        pred = self.model(grids, flats)
+
+        with torch.no_grad():
+            next_q = self.model(next_grids, next_flats).max(dim=1).values
+        dead_tensor = torch.tensor(dead, dtype=torch.bool, device=device)
+        Q_new = reward + self.gamma * next_q * (~dead_tensor)
+        action_indices = torch.argmax(action, dim=1)
+
+        target = pred.clone() #creates copy of prediction variable
+        action_indices = torch.argmax(action, dim=1)
+        target[torch.arange(len(dead_tensor), device=device), action_indices] = Q_new
+
+        #adjusting weights and biases
+        self.optimizer.zero_grad() #clears previous math
+        loss = self.criterion(target, pred) #calculates error between predicted reward and actual reward
+        loss.backward()
+        self.optimizer.step()
+
 class Agent:
     def __init__(self, model, trainer):
         self.model = model
@@ -106,3 +149,60 @@ class Agent:
         states, actions, rewards, next_states, deads = zip(*mini_sample)
 
         self.trainer.train_step(states, actions, rewards, next_states, deads)
+
+class AgentCNN:
+    def __init__(self, model, trainer):
+        self.model = model
+        self.trainer = trainer
+        self.memory = deque(maxlen=100_000)
+        self.batch_size = 512
+    
+    def remember(self, grid, flat, action, reward, next_grid, next_flat, dead):
+        self.memory.append((grid, flat, action, reward, next_grid, next_flat, dead))
+
+    def train_long_memory(self):
+        if len(self.memory) < self.batch_size:
+            return
+
+        mini_sample = random.sample(self.memory, self.batch_size)
+
+        grids, flats, actions, rewards, next_grids, next_flats, deads = zip(*mini_sample)
+
+        self.trainer.train_step(grids, flats, actions, rewards, next_grids, next_flats, deads)
+
+class Conv_QNet(nn.Module):
+    def __init__(self, res, flat_input_size, hidden_size, output_size):
+        super().__init__()
+
+        self.conv1 = nn.Conv2d(3, 32, kernel_size = 3, padding = 1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size = 3, padding = 1)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size = 3, padding = 1)
+
+        conv_flat_size = 64 * (res * res)
+
+        self.fc_flat = nn.Linear(flat_input_size, 32)
+
+        self.fc1 = nn.Linear(conv_flat_size + 32, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, grid, flat):
+        x = F.relu(self.conv1(grid))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = x.flatten(start_dim=1)
+
+        f = F.relu(self.fc_flat(flat))
+
+        combined = torch.cat([x, f], dim=1)
+        combined = F.relu(self.fc1(combined))
+        return self.fc2(combined)
+    
+    def save(self, checkpoint, file_name='model.pth'):
+        model_folder_path = './model'
+
+        if not os.path.exists(model_folder_path):
+            os.makedirs(model_folder_path)
+        file_path = os.path.join(model_folder_path, file_name)
+
+        torch.save(checkpoint, file_path)
+        print(f"--> Brain saved successfully to {file_path}")

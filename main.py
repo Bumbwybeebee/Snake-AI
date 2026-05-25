@@ -11,7 +11,7 @@ import random
 import os
 
 # Set device for computation
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
 
 def main():
@@ -19,7 +19,7 @@ def main():
     CELL_SIZE = 40
     WINDOW_SIZE = RES * CELL_SIZE
     DISPLAY = True
-    AI_PLAYING = False
+    AI_PLAYING = True
     starvation = 0
 
     pygame.init()
@@ -38,8 +38,8 @@ def main():
 
     #AI stuff
     # model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ai.Linear_QNet(input_size=15, hidden_size=256, output_size=3).to(device)
+    #device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
+    model = ai.Conv_QNet(res=RES, flat_input_size=9, hidden_size=256, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
     epsilon = 80 #increases variability at the beginning
     games_played = 0
@@ -53,8 +53,8 @@ def main():
         print("loaded saved model")
     else:
         print("no saved model found")
-    trainer = ai.QTrainer(model=model, lr=0.001, gamma=0.9)
-    agent = ai.Agent(model=model, trainer=trainer)
+    trainer = ai.QTrainerCNN(model=model, lr=0.001, gamma=0.9)
+    agent = ai.AgentCNN(model=model, trainer=trainer)
     running = True
 
     
@@ -79,7 +79,7 @@ def main():
                     
             #AI input here
             #stores old state for comparison
-            old_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
+            old_grid, old_flat = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
             #choosing action
             if AI_PLAYING:
                 final_move = [0,0,0]
@@ -87,8 +87,9 @@ def main():
                     final_move[random.randint(0,2)] = 1
                 else:
                     with torch.no_grad():
-                        state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0).to(device)
-                        prediction = model(state_tensor)
+                        grid_tensor = torch.tensor(old_grid, dtype = torch.float).unsqueeze(0).to(device)
+                        flat_tensor = torch.tensor(old_flat, dtype = torch.float).unsqueeze(0).to(device)
+                        prediction = model(grid_tensor, flat_tensor)
                         final_move[int(torch.argmax(prediction).item())] = 1
     
                 ai_move(player_snake=player_snake, final_move=final_move)
@@ -96,10 +97,11 @@ def main():
             old_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
 
             player_snake.move()
+            dead = not player_snake.is_alive()
+
             new_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
 
             reward = 0
-            dead = not player_snake.is_alive()
 
             if dead:
                 reward = -50
@@ -120,13 +122,15 @@ def main():
                     starvation += 1
                     reward = -1
                 
-                reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, RES)/(RES * RES)
-            
-            new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
+                #reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, RES)/(RES * RES)
+            if dead:
+                new_grid, new_flat = old_grid, old_flat
+            else:
+                new_grid, new_flat = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
 
             if AI_PLAYING:
-                trainer.train_step(old_state, final_move, reward, new_state, dead)
-                agent.remember(old_state, final_move, reward, new_state, dead)
+                trainer.train_step(old_grid, old_flat, final_move, reward, new_grid, new_flat, dead)
+                agent.remember(old_grid, old_flat, final_move, reward, new_grid, new_flat, dead)
 
                 if dead:
                     epsilon = max(0, 80 - games_played * 0.005)
@@ -211,6 +215,15 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
     head = player_snake.snake_head
     apple_pos = player_apple.apple_pos
 
+    grid = np.zeros((3, res, res), dtype=np.float32)
+
+    for segment in player_snake.snake_body[1:]:
+        grid[0, segment[0], segment[1]] = 1.0
+
+    grid[1, head[0], head[1]] = 1.0
+
+    grid[2, apple_pos[0], apple_pos[1]] = 1.0
+
     #coords of the 4 points around head
     p_l = head + np.array([-1, 0])
     p_r = head + np.array([1, 0])
@@ -240,10 +253,10 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
     
     
     
-    space_l = flood_fill_count(p_l, player_snake.snake_body, res) / (res * res)
-    space_r = flood_fill_count(p_r, player_snake.snake_body, res) / (res * res)
-    space_u = flood_fill_count(p_u, player_snake.snake_body, res) / (res * res)
-    space_d = flood_fill_count(p_d, player_snake.snake_body, res) / (res * res)
+    # space_l = flood_fill_count(p_l, player_snake.snake_body, res) / (res * res)
+    # space_r = flood_fill_count(p_r, player_snake.snake_body, res) / (res * res)
+    # space_u = flood_fill_count(p_u, player_snake.snake_body, res) / (res * res)
+    # space_d = flood_fill_count(p_d, player_snake.snake_body, res) / (res * res)
 
     state = [
         #danger values 
@@ -256,20 +269,26 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
 
         #current direction
         dir_l, dir_r, dir_u, dir_d,
- 
-        #food location relative to head position
-        apple_pos[0] < head[0],  # Food is Left
-        apple_pos[0] > head[0],  # Food is Right
-        apple_pos[1] < head[1],  # Food is Up
-        apple_pos[1] > head[1],   # Food is Down
+
+        #head position
+        head[0]/res,
+        head[1]/res
+
+        # #food location relative to head position
+        # apple_pos[0] < head[0],  # Food is Left
+        # apple_pos[0] > head[0],  # Food is Right
+        # apple_pos[1] < head[1],  # Food is Up
+        # apple_pos[1] > head[1],   # Food is Down
         
-        #free space when going in the different directions
-        space_l,
-        space_r,
-        space_u,
-        space_d
+        # #free space when going in the different directions
+        # space_l,
+        # space_r,
+        # space_u,
+        # space_d
     ]
-    return [int(x) for x in state[:-4]] + [ i for i in state[-4:]]
+    flat = np.array(state, dtype=np.float32)
+    return grid, flat
+    #return [int(x) for x in state[:-4]] + [ i for i in state[-4:]]
 
 if __name__ == "__main__":
     main()
