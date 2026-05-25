@@ -125,8 +125,7 @@ def main():
             new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
 
             if AI_PLAYING:
-                if games_played % 4 == 0:
-                    trainer.train_step(old_state, final_move, reward, new_state, dead)
+                trainer.train_step(old_state, final_move, reward, new_state, dead)
                 agent.remember(old_state, final_move, reward, new_state, dead)
 
                 if dead:
