@@ -37,12 +37,9 @@ def main():
     player_apple = apple.Apple(RES, DISPLAY)
 
     #AI stuff
-<<<<<<< HEAD
     model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
-=======
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = ai.Linear_QNet(input_size=15, hidden_size=256, output_size=3).to(device)
->>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
     saved_model_path = './model/best_model.pth'
     epsilon = 80 #increases variability at the beginning
     games_played = 0
@@ -105,11 +102,7 @@ def main():
             dead = not player_snake.is_alive()
 
             if dead:
-<<<<<<< HEAD
                 reward = -50
-=======
-                reward = -15
->>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
                 starvation = 0
             elif np.array_equal(player_snake.snake_head, player_apple.apple_pos):
                 player_snake.grow()
@@ -136,7 +129,6 @@ def main():
                     trainer.train_step(old_state, final_move, reward, new_state, dead)
                 agent.remember(old_state, final_move, reward, new_state, dead)
 
-<<<<<<< HEAD
                 if dead:
                     epsilon = max(0, 80 - games_played * 0.005)
                     games_played += 1
@@ -159,23 +151,6 @@ def main():
                     print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
             if not AI_PLAYING and dead:
                 player_snake = snake.Snake(RES)
-=======
-            if dead:
-                epsilon = max(int(starvation * .1), 80 - games_played * 0.005)
-                games_played += 1
-                if player_snake.length > high_score:
-                    high_score = player_snake.length
-                    
-                    checkpoint = {
-                        'state': model.state_dict(),
-                        'games_played': games_played,
-                        'high_score': high_score,
-                        'epsilon': epsilon
-                    }
-                    model.save(checkpoint, file_name='best_model.pth')
-                #resets board
-                player_snake = snake.Snake(res)
->>>>>>> a7f91a3 (added a flood fill check to keep snake from boxing itself in, and trained it)
                 player_apple.generate(player_snake)
             
             if DISPLAY:
