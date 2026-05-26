@@ -41,10 +41,10 @@ def main():
     #AI stuff
     # model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
     #device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
-    model = ai.Conv_QNet(res=RES, flat_input_size=9, hidden_size=256, output_size=3).to(device)
+    model = ai.Conv_QNet(res=RES, flat_input_size=13, hidden_size=512, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
     stats_path = './model/stats.json'
-    epsilon = 80 #increases variability at the beginning
+    epsilon = 200 #increases variability at the beginning
     games_played = 0
     high_score = 0
     if os.path.exists(saved_model_path):
@@ -102,6 +102,7 @@ def main():
                         grid_tensor = torch.tensor(old_grid, dtype = torch.float).unsqueeze(0).to(device)
                         flat_tensor = torch.tensor(old_flat, dtype = torch.float).unsqueeze(0).to(device)
                         prediction = model(grid_tensor, flat_tensor)
+                        #print(f"prediction: {prediction}")
                         final_move[int(torch.argmax(prediction).item())] = 1
     
                 ai_move(player_snake=player_snake, final_move=final_move)
@@ -116,23 +117,23 @@ def main():
             reward = 0
 
             if dead:
-                reward = -50
+                reward = -1
                 starvation = 0
             elif np.array_equal(player_snake.snake_head, player_apple.apple_pos):
                 player_snake.grow()
                 player_apple.generate(player_snake)
-                reward = 10
+                reward = 3
                 starvation = 0
             else:
                 if new_dist < old_dist:
                     starvation += 1
-                    reward = 1 #to encourage it to move towards apple
+                    reward = .1 #to encourage it to move towards apple
                 elif starvation > (RES * RES):
                     dead = True
-                    reward = -30
+                    reward = -3
                 else:
                     starvation += 1
-                    reward = -1
+                    reward = 0
                 
                 #reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, RES)/(RES * RES)
             if dead:
@@ -145,7 +146,7 @@ def main():
                 agent.remember(old_grid, old_flat, final_move, reward, new_grid, new_flat, dead)
 
                 if dead:
-                    epsilon = max(0, 80 - games_played * 0.05)
+                    epsilon = max(0, 200 - games_played * 0.05)
                     games_played += 1
                     avg_score = (avg_score + (player_snake.length - avg_score)/games_played)
                     recent_scores.append(player_snake.length)
@@ -182,7 +183,7 @@ def main():
                 player_apple.draw(screen, CELL_SIZE)
     
                 pygame.display.flip()
-                clock.tick(1000 if AI_PLAYING else 10)
+                clock.tick(100 if AI_PLAYING else 10)
 
     except KeyboardInterrupt:
         print("Program stopped by user.")
@@ -293,13 +294,13 @@ def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
 
         #head position
         head[0]/res,
-        head[1]/res
+        head[1]/res,
 
         # #food location relative to head position
-        # apple_pos[0] < head[0],  # Food is Left
-        # apple_pos[0] > head[0],  # Food is Right
-        # apple_pos[1] < head[1],  # Food is Up
-        # apple_pos[1] > head[1],   # Food is Down
+        apple_pos[0] < head[0],  # Food is Left
+        apple_pos[0] > head[0],  # Food is Right
+        apple_pos[1] < head[1],  # Food is Up
+        apple_pos[1] > head[1]   # Food is Down
         
         # #free space when going in the different directions
         # space_l,

@@ -128,6 +128,7 @@ class QTrainerCNN:
         self.optimizer.zero_grad() #clears previous math
         loss = self.criterion(target, pred) #calculates error between predicted reward and actual reward
         loss.backward()
+        #print(f"loss: {loss.item():.4f}")
         self.optimizer.step()
 
 class Agent:
@@ -180,9 +181,9 @@ class Conv_QNet(nn.Module):
 
         conv_flat_size = 64 * (res * res)
 
-        self.fc_flat = nn.Linear(flat_input_size, 32)
+        self.fc_flat = nn.Linear(flat_input_size, 64)
 
-        self.fc1 = nn.Linear(conv_flat_size + 32, hidden_size)
+        self.fc1 = nn.Linear(conv_flat_size + 64, hidden_size)
         self.fc2 = nn.Linear(hidden_size, output_size)
 
     def forward(self, grid, flat):
