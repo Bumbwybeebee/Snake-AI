@@ -7,8 +7,11 @@ import apple
 import ai
 import numpy as np
 import torch
-import random
 import os
+import game as snake_game
+import random
+import time
+from collections import deque
 
 # Set device for computation
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -19,8 +22,8 @@ def main():
     CELL_SIZE = 40
     WINDOW_SIZE = RES * CELL_SIZE
     DISPLAY = True
-    AI_PLAYING = False
-    starvation = 0
+    AI_PLAYING = True
+    SIMULTANEOUS_GAMES = 64
 
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
@@ -33,17 +36,24 @@ def main():
 
     clock = pygame.time.Clock()
     print("start")
-    player_snake = snake.Snake(RES)
-    player_apple = apple.Apple(RES, DISPLAY)
+
+    if AI_PLAYING:
+        games = []
+        for i in range(SIMULTANEOUS_GAMES):
+            games.append(snake_game.SnakeGame(True, False, RES))
+    else:
+        player_snake = snake.Snake(RES)
+        player_apple = apple.Apple(RES, DISPLAY)
+
 
     #AI stuff
-    # model = ai.Linear_QNet(input_size=11, hidden_size=256, output_size=3).to(device)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = ai.Linear_QNet(input_size=15, hidden_size=256, output_size=3).to(device)
+    model = ai.Linear_QNet(input_size=11, hidden_size=512, output_size=3).to(device)
     saved_model_path = './model/best_model.pth'
-    epsilon = 80 #increases variability at the beginning
+    epsilon = 20 #increases variability at the beginning
     games_played = 0
     high_score = 0
+    game_timestamps = deque()
+
     if os.path.exists(saved_model_path):
         checkpoint = torch.load(saved_model_path, map_location=device)
         model.load_state_dict(checkpoint['state'])
@@ -57,107 +67,101 @@ def main():
     agent = ai.Agent(model=model, trainer=trainer)
     running = True
 
-    
+
 
     try:
-        while running: 
+        while running:
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
-                        DISPLAY = not DISPLAY 
-                    if not AI_PLAYING:
-                        if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                            player_snake.turn(snake.Direction.LEFT)
-                        elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                            player_snake.turn(snake.Direction.RIGHT)
-                        elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                            player_snake.turn(snake.Direction.UP)
-                        elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                            player_snake.turn(snake.Direction.DOWN)
+                        DISPLAY = not DISPLAY
                 if event.type == pygame.QUIT:
                     running = False
-                    
-            #AI input here
-            #stores old state for comparison
-            old_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
-            #choosing action
+
             if AI_PLAYING:
-                final_move = [0,0,0]
-                if random.randint(0, 200) < epsilon:
-                    final_move[random.randint(0,2)] = 1
-                else:
+                # Get states from all games
+                states = []
+                game_states = []
+                for i, game in enumerate(games):
+                    state = game.get_state()
+                    states.append(state)
+                    game_states.append({
+                        'index': i,
+                        'state': state,
+                        'game': game,
+                        'old_head_pos': game.player_snake.snake_head.copy()
+                    })
+
+                # Process all states in a batch to get actions
+                if states and len(states) > 0:
+                    states_tensor = torch.tensor(np.array(states), dtype=torch.float32, device=device)
+
                     with torch.no_grad():
-                        state_tensor = torch.tensor(old_state, dtype = torch.float).unsqueeze(0).to(device)
-                        prediction = model(state_tensor)
-                        final_move[int(torch.argmax(prediction).item())] = 1
-    
-                ai_move(player_snake=player_snake, final_move=final_move)
+                        predictions = model(states_tensor)
+                        action_indices = torch.argmax(predictions, dim=1).cpu().tolist()
 
-            old_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
+                    # Exploration override
+                    for i in range(len(action_indices)):
+                        if random.random() * 100 < epsilon:
+                            action_indices[i] = random.randint(0, 2)
 
-            player_snake.move()
-            new_dist = abs(player_snake.snake_head[0] - player_apple.apple_pos[0]) + abs(player_snake.snake_head[1] - player_apple.apple_pos[1])
+                    # Apply actions and collect experiences
+                    games_finished = 0
+                    for i, (game_state, action_idx) in enumerate(zip(game_states, action_indices)):
+                        game = game_state['game']
+                        old_state = game_state['state']
 
-            reward = 0
-            dead = not player_snake.is_alive()
+                        action = [0, 0, 0]
+                        action[action_idx] = 1
 
-            if dead:
-                reward = -50
-                starvation = 0
-            elif np.array_equal(player_snake.snake_head, player_apple.apple_pos):
-                player_snake.grow()
-                player_apple.generate(player_snake)
-                reward = 10
-                starvation = 0
+                        new_state, reward, done = game.step(action)
+
+                        if game.high_score > high_score:
+                            high_score = game.high_score
+
+                        agent.remember(old_state, action, reward, new_state, done)
+
+                        if done:
+                            game.reset()
+                            games_finished += 1
+                            games_played += 1
+                            epsilon = max(0, 20 * 0.9999**games_played)
+                            current_time = time.time()
+                            game_timestamps.append(current_time)
+                            while game_timestamps and game_timestamps[0] < current_time - 2:
+                                game_timestamps.popleft()
+
+                            games_per_second = len(game_timestamps) / 2.0
+                            
+                            print(f"Game {games_played} Over. Epsilon: {epsilon:.4f} High Score: {high_score} Speed: {games_per_second:.1f} games/sec")
+
+                    # FIX: Only train long memory when at least one game finishes!
+                    if games_finished > 0 and games_played % 50 == 0:
+                        # print(f"{games_finished} games finished. Total games played: {games_played}")
+                        if len(agent.memory) >= agent.batch_size:
+                            # print("--> Training long memory...")
+                            agent.train_long_memory()
             else:
-                if new_dist < old_dist:
-                    starvation += 1
-                    reward = 1 #to encourage it to move towards apple
-                elif starvation > (RES * RES):
-                    dead = True
-                    reward = -30
-                else:
-                    starvation += 1
-                    reward = -1
-                
-                reward += 5 * flood_fill_count(player_snake.snake_head, player_snake.snake_body, RES)/(RES * RES)
-            
-            new_state = get_game_state(player_snake=player_snake, player_apple=player_apple, res=RES)
+                # Single player game processing placeholder
+                pass
 
-            if AI_PLAYING:
-                trainer.train_step(old_state, final_move, reward, new_state, dead)
-                agent.remember(old_state, final_move, reward, new_state, dead)
-
-                if dead:
-                    epsilon = max(0, 80 - games_played * 0.005)
-                    games_played += 1
-                    if player_snake.length > high_score:
-                        high_score = player_snake.length
-                        
-                        checkpoint = {
-                            'state': model.state_dict(),
-                            'games_played': games_played,
-                            'high_score': high_score,
-                            'epsilon': epsilon
-                        }
-                        model.save(checkpoint, file_name='best_model.pth')
-                    #resets board
-                    player_snake = snake.Snake(RES)
-                    player_apple.generate(player_snake)
-                
-                    agent.train_long_memory()
-
-                    print(f"Game {games_played} Over. Epsilon: {epsilon} High Score: {high_score}")
-            if not AI_PLAYING and dead:
-                player_snake = snake.Snake(RES)
-                player_apple.generate(player_snake)
-            
+            # FIX: Clean display handling that handles both AI monitoring and Single Player
             if DISPLAY:
-                player_snake.draw(screen, CELL_SIZE, background)
-                player_apple.draw(screen, CELL_SIZE)
-    
+                # Draw the background surface grid to clear old positions
+                screen.blit(background, (0, 0))
+
+                if AI_PLAYING:
+                    # Draw just the first game's snake and apple to monitor training visually
+                    games[0].player_snake.draw(screen, CELL_SIZE, background)
+                    games[0].player_apple.draw(screen, CELL_SIZE)
+                    clock.tick(60) # Limits speed while watching so you can see it
+                else:
+                    player_snake.draw(screen, CELL_SIZE, background)
+                    player_apple.draw(screen, CELL_SIZE)
+                    clock.tick(10)
+
                 pygame.display.flip()
-                clock.tick(1000 if AI_PLAYING else 10)
+
 
     except KeyboardInterrupt:
         print("Program stopped by user.")
@@ -176,24 +180,6 @@ def main():
         pygame.quit()
         sys.exit()
 
-
-def flood_fill_count(start, snake_body, res):
-        visited = set()
-        stack = [tuple(start)]
-        body_set = {tuple(s) for s in snake_body[1:]}
-        while stack:
-            pos = stack.pop()
-            if pos in visited:
-                continue
-            x, y = pos
-            if x < 0 or x >= res or y < 0 or y >= res:
-                continue
-            if pos in body_set:
-                continue
-            visited.add(pos)
-            stack.extend([(x+1, y), (x-1, y), (x, y+1), (x, y-1)])
-        return len(visited)
-
 def ai_move(player_snake : snake.Snake, final_move):
     current_dir = player_snake.direction.value
     v = np.array(current_dir)
@@ -207,69 +193,52 @@ def ai_move(player_snake : snake.Snake, final_move):
     else: #ai turns right
         player_snake.turn(snake.Direction((int(-v[1]), int(v[0]))))#should output the direction snake is moving rotated by 90 degrees clockwise
 
-def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
-    head = player_snake.snake_head
-    apple_pos = player_apple.apple_pos
-
-    #coords of the 4 points around head
-    p_l = head + np.array([-1, 0])
-    p_r = head + np.array([1, 0])
-    p_u = head + np.array([0, -1])
-    p_d = head + np.array([0, 1])
-
-    #bool values for which direction is the snake currently going, formatted for input array
-    dir_l = player_snake.direction == snake.Direction.LEFT
-    dir_r = player_snake.direction == snake.Direction.RIGHT
-    dir_u = player_snake.direction == snake.Direction.UP
-    dir_d = player_snake.direction == snake.Direction.DOWN
-    
-    #checks how open the map is to prevent trapping itself
-    
-
-
-    #checks if the snake is in danger
-    def danger(pt):
-        #wall collisions
-        if np.any(pt < 0) or np.any(pt >= res):
-            return True
-        # 
-        for segment in player_snake.snake_body[1:]:
-            if np.array_equal(segment, pt):
-                return True
-        return False
-    
-    
-    
-    space_l = flood_fill_count(p_l, player_snake.snake_body, res) / (res * res)
-    space_r = flood_fill_count(p_r, player_snake.snake_body, res) / (res * res)
-    space_u = flood_fill_count(p_u, player_snake.snake_body, res) / (res * res)
-    space_d = flood_fill_count(p_d, player_snake.snake_body, res) / (res * res)
-
-    state = [
-        #danger values 
-        #going straight is deadly
-        (dir_r and danger(p_r)) or (dir_l and danger(p_l)) or (dir_u and danger(p_u)) or (dir_d and danger(p_d)),
-        #turning left is deadly
-        (dir_u and danger(p_l)) or (dir_l and danger(p_d)) or (dir_d and danger(p_r)) or (dir_r and danger(p_u)),
-        #turning right is deadly
-        (dir_u and danger(p_r)) or (dir_l and danger(p_u)) or (dir_d and danger(p_l)) or (dir_r and danger(p_d)),
-
-        #current direction
-        dir_l, dir_r, dir_u, dir_d,
- 
-        #food location relative to head position
-        apple_pos[0] < head[0],  # Food is Left
-        apple_pos[0] > head[0],  # Food is Right
-        apple_pos[1] < head[1],  # Food is Up
-        apple_pos[1] > head[1],   # Food is Down
-        
-        #free space when going in the different directions
-        space_l,
-        space_r,
-        space_u,
-        space_d
-    ]
-    return [int(x) for x in state[:-4]] + [ i for i in state[-4:]]
-
 if __name__ == "__main__":
     main()
+
+# def get_game_state(player_snake : snake.Snake, player_apple : apple.Apple, res):
+    # centered_map = np.zeros((res, res))
+    # center = (res // 2, res // 2)
+    # shift_x, shift_y = player_snake.snake_head - center
+    # # print(f"shifted coordinates: ({shift_x}, {shift_y})")
+    # for segment in player_snake.snake_body:
+    #     x, y = segment
+    #     shifted_x = (x - shift_x) % res
+    #     shifted_y = (y - shift_y) % res
+    #     centered_map[shifted_y, shifted_x] = 1
+
+    # apple_x, apple_y = player_apple.apple_pos
+    # apple_shifted_x = (apple_x - shift_x) % res
+    # apple_shifted_y = (apple_y - shift_y) % res
+    # centered_map[apple_shifted_y, apple_shifted_x] = -1
+
+    # apple_pos = player_apple.apple_pos
+    # # print(f"centered map:")
+    # # print(f"{centered_map}")
+    # dir_l = 1 if player_snake.direction == snake.Direction.LEFT else 0
+    # dir_r = 1 if player_snake.direction == snake.Direction.RIGHT else 0
+    # dir_u = 1 if player_snake.direction == snake.Direction.UP else 0
+    # dir_d = 1 if player_snake.direction == snake.Direction.DOWN else 0
+    # final_map = np.concatenate([centered_map.flatten(), [apple_pos[0], apple_pos[1]], [dir_l, dir_r, dir_u, dir_d]])
+    # # state_map = np.zeros((res*res*2 + 4))
+    # # # head_map = np.zeros((res*res))
+    # # head_index = player_snake.snake_head[1] * res + player_snake.snake_head[0]
+
+    # # if 0 <= head_index < res*res:
+    # #     state_map[head_index] = 1
+
+    # # # snake_map = np.zeros((res*res))
+    # # for segment in player_snake.snake_body:
+    # #     index = segment[1] * res + segment[0]
+    # #     if 0 <= index < res * res:
+    # #         state_map[index + res*res] = 1
+
+    # # apple_index = player_apple.apple_pos[1] * res + player_apple.apple_pos[0]
+    # # state_map[apple_index + res*res] = -1
+
+    # # state_map[res*res*2 + 0] = 1 if player_snake.direction == snake.Direction.LEFT else 0
+    # # state_map[res*res*2 + 1] = 1 if player_snake.direction == snake.Direction.RIGHT else 0
+    # # state_map[res*res*2 + 2] = 1 if player_snake.direction == snake.Direction.UP else 0
+    # # state_map[res*res*2 + 3] = 1 if player_snake.direction == snake.Direction.DOWN else 0
+
+    # return final_map

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import numpy as np
 import random
 import os
 from collections import deque
@@ -28,7 +27,7 @@ class Linear_QNet(nn.Module):
         x is like the function variable (like f(x) = x² + 3 for example)
         so here, x is the inputs (the game information the model is taking in)
         """
-        x = F.relu(self.linear1(x))
+        x = F.leaky_relu(self.linear1(x))
         """
         self.linear1(x) takes (game inputs) and outputs 256 hidden numbers, which are the computer's representation of the game state it took in
         torch.relu(self.linear1(x)) changes all the negative numbers in the 256 hidden numbers to 0
@@ -47,7 +46,7 @@ class Linear_QNet(nn.Module):
         torch.save(checkpoint, file_path)
         print(f"--> Brain saved successfully to {file_path}")
 
-    
+
 
 class QTrainer:
     def __init__(self, model, lr, gamma):
@@ -93,7 +92,7 @@ class Agent:
         self.trainer = trainer
         self.memory = deque(maxlen=100_000)
         self.batch_size = 512
-    
+
     def remember(self, state, action, reward, next_state, dead):
         self.memory.append((state, action, reward, next_state, dead))
 
