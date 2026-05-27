@@ -1,12 +1,13 @@
+import pygame
+
 import snake
 import apple
 import numpy as np
 
 class SnakeGame:
-    def __init__(self, AI_PLAYING, DISPLAY, res=15):
+    def __init__(self, AI_PLAYING, res=15):
         self.RES = res
         self.AI_PLAYING = AI_PLAYING
-        self.DISPLAY = DISPLAY
         self.player_snake = snake.Snake(res)
         self.player_apple = apple.Apple(res, display=False)
         self.high_score = 0
@@ -23,41 +24,60 @@ class SnakeGame:
         return self.get_game_state(self.player_snake, self.player_apple, self.RES)
 
     def step(self, action):
-        old_head_pos = self.player_snake.snake_head.copy()
-        old_dist = abs(old_head_pos[0] - self.player_apple.apple_pos[0]) + abs(old_head_pos[1] - self.player_apple.apple_pos[1])
-        current_dir_x, current_dir_y = self.player_snake.direction.value
-        if action == [1, 0, 0]:
-            #straight
-            pass
-        elif action == [0, 1, 0]:
-            #left
-            self.player_snake.turn(snake.Direction((int(current_dir_y), int(-current_dir_x)))) #should output the direction snake is moving rotated by 90 degrees counterclockwise
-        elif action == [0, 0, 1]:
-            #right
-            self.player_snake.turn(snake.Direction((int(-current_dir_y), int(current_dir_x))))#should output the direction snake is moving rotated by 90 degrees clockwise
+        if self.AI_PLAYING:
+            old_head_pos = self.player_snake.snake_head.copy()
+            old_dist = abs(old_head_pos[0] - self.player_apple.apple_pos[0]) + abs(old_head_pos[1] - self.player_apple.apple_pos[1])
+            current_dir_x, current_dir_y = self.player_snake.direction.value
+            if action == [1, 0, 0]:
+                #straight
+                pass
+            elif action == [0, 1, 0]:
+                #left
+                self.player_snake.turn(snake.Direction((int(current_dir_y), int(-current_dir_x)))) #should output the direction snake is moving rotated by 90 degrees counterclockwise
+            elif action == [0, 0, 1]:
+                #right
+                self.player_snake.turn(snake.Direction((int(-current_dir_y), int(current_dir_x))))#should output the direction snake is moving rotated by 90 degrees clockwise
 
-        self.player_snake.move()
+            self.player_snake.move()
 
-        done = not self.player_snake.is_alive()
-        reward = 0
+            done = not self.player_snake.is_alive()
+            reward = 0
 
-        # Calculate reward
-        if done:
-            reward = -50
+            # Calculate reward
+            if done:
+                reward = -50
+            else:
+                new_dist = abs(self.player_snake.snake_head[0] - self.player_apple.apple_pos[0]) + abs(self.player_snake.snake_head[1] - self.player_apple.apple_pos[1])
+                if np.array_equal(self.player_snake.snake_head, self.player_apple.apple_pos):
+                    self.player_snake.grow()
+                    self.player_apple.generate(self.player_snake)
+                    # Update high score to the maximum of current high score and current snake length
+                    self.high_score = max(self.high_score, self.player_snake.length)
+                    reward = 10
+                elif new_dist < old_dist:
+                    reward = 1
+                else:
+                    reward = -1
+
+            return self.get_game_state(self.player_snake, self.player_apple, self.RES), reward, done
         else:
-            new_dist = abs(self.player_snake.snake_head[0] - self.player_apple.apple_pos[0]) + abs(self.player_snake.snake_head[1] - self.player_apple.apple_pos[1])
+            if action == snake.Direction.LEFT:
+                self.player_snake.turn(snake.Direction.LEFT)
+            elif action == snake.Direction.RIGHT:
+                self.player_snake.turn(snake.Direction.RIGHT)
+            elif action == snake.Direction.UP:
+                self.player_snake.turn(snake.Direction.UP)
+            elif action == snake.Direction.DOWN:
+                self.player_snake.turn(snake.Direction.DOWN)
+
+            self.player_snake.move()
+            alive = self.player_snake.is_alive()
             if np.array_equal(self.player_snake.snake_head, self.player_apple.apple_pos):
                 self.player_snake.grow()
                 self.player_apple.generate(self.player_snake)
-                # Update high score to the maximum of current high score and current snake length
                 self.high_score = max(self.high_score, self.player_snake.length)
-                reward = 10
-            elif new_dist < old_dist:
-                reward = 1
-            else:
-                reward = -1
+            return alive
 
-        return self.get_game_state(self.player_snake, self.player_apple, self.RES), reward, done
 
     def get_game_state(self, player_snake : snake.Snake, player_apple : apple.Apple, res):
         head = player_snake.snake_head
@@ -105,3 +125,9 @@ class SnakeGame:
             apple_pos[1] > head[1]   # Food is Down
         ]
         return [int(x) for x in state]
+
+    def draw(self, screen: pygame.Surface, background: pygame.Surface, cell_size: int):
+        screen.blit(background, (0, 0))
+
+        self.player_snake.draw(screen, cell_size, background)
+        self.player_apple.draw(screen, cell_size)

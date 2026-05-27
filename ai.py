@@ -8,6 +8,10 @@ from collections import deque
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+# Memory optimization for consumer GPUs like the 4060
+if torch.cuda.is_available():
+    torch.cuda.set_per_process_memory_fraction(0.8)  # Limit GPU usage to 80% of available memory
+
 class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         """
@@ -91,7 +95,7 @@ class Agent:
         self.model = model
         self.trainer = trainer
         self.memory = deque(maxlen=100_000)
-        self.batch_size = 512
+        self.batch_size = 128
 
     def remember(self, state, action, reward, next_state, dead):
         self.memory.append((state, action, reward, next_state, dead))
