@@ -21,7 +21,7 @@ def main():
     CELL_SIZE = 40
     WINDOW_SIZE = RES * CELL_SIZE
     DISPLAY = True
-    AI_PLAYING = True
+    AI_PLAYING = Truev 
     starvation = 0
 
     pygame.init()
