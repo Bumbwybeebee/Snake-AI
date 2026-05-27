@@ -25,7 +25,7 @@ def main():
 
     pygame.init()
     info = pygame.display.Info()
-    screen_w, screen_h = info.current_w, info.current_h
+    screen_w, screen_h = info.current_w * .9, info.current_h * .9
 
     # Fit as many cells as possible in the smaller screen dimension
     CELL_SIZE = min(screen_w, screen_h) // RES
