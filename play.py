@@ -40,7 +40,7 @@ def main():
 
     if AI_PLAYING:
         import ai
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
         model = ai.Conv_QNet(res=RES, flat_input_size=13, hidden_size=512, output_size=3).to(device)
         model_path = 'model/best_model.pth'
         if os.path.exists(model_path):

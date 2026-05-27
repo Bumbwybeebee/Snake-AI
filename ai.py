@@ -7,7 +7,7 @@ import random
 import os
 from collections import deque
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
 
 if torch.cuda.is_available():
     torch.cuda.set_per_process_memory_fraction(0.8)
