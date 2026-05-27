@@ -128,17 +128,21 @@ class Snake:
         return SegmentType.HORIZONTAL
 
     def draw(self, screen: pygame.Surface, cell_size, background: pygame.Surface):
-            # Initialize a sprite cache on the snake if it doesn't exist yet
-            if not hasattr(self, 'sprite_cache'):
-                self.sprite_cache = {}
+        if not hasattr(self, 'sprite_cache'):
+            self.sprite_cache = {}
+            self._cached_cell_size = cell_size
 
-            for segment_index in range(len(self.snake_body)):
-                segment_type_path = self.find_segment_type(segment_index).value
-                # If we haven't loaded this specific segment image yet, load it once
-                if segment_type_path not in self.sprite_cache:
-                    self.sprite_cache[segment_type_path] = pygame.image.load(segment_type_path).convert_alpha()
+        # Invalidate cache if cell_size changed
+        if self._cached_cell_size != cell_size:
+            self.sprite_cache = {}
+            self._cached_cell_size = cell_size
 
-                # Grab the pre-loaded image from our cache
-                sprite = self.sprite_cache[segment_type_path]
+        for segment_index in range(len(self.snake_body)):
+            segment_type_path = self.find_segment_type(segment_index).value
+            if segment_type_path not in self.sprite_cache:
+                img = pygame.image.load(segment_type_path).convert_alpha()
+                self.sprite_cache[segment_type_path] = pygame.transform.scale(img, (cell_size, cell_size))
 
-                screen.blit(sprite, (self.snake_body[segment_index][0] * cell_size, self.snake_body[segment_index][1] * cell_size))
+            sprite = self.sprite_cache[segment_type_path]
+            screen.blit(sprite, (self.snake_body[segment_index][0] * cell_size,
+                                self.snake_body[segment_index][1] * cell_size))

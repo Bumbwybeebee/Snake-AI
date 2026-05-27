@@ -24,6 +24,13 @@ def main():
     SIMULTANEOUS_GAMES = 64
 
     pygame.init()
+    info = pygame.display.Info()
+    screen_w, screen_h = info.current_w, info.current_h
+
+    # Fit as many cells as possible in the smaller screen dimension
+    CELL_SIZE = min(screen_w, screen_h) // RES
+    WINDOW_SIZE = RES * CELL_SIZE
+
     screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
     background = pygame.Surface((WINDOW_SIZE, WINDOW_SIZE))
     for row in range(RES):

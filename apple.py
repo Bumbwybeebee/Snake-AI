@@ -21,7 +21,9 @@ class Apple:
         self.apple_pos = np.array([self.x_position, self.y_position])
 
     def draw(self, screen: pygame.Surface, size):
-        if not hasattr(self, 'apple_sprite'):
-            self.apple_sprite = pygame.image.load("sprites/apple.png").convert_alpha()
+        if not hasattr(self, 'apple_sprite') or getattr(self, '_cached_size', None) != size:
+            img = pygame.image.load("sprites/apple.png").convert_alpha()
+            self.apple_sprite = pygame.transform.scale(img, (size, size))
+            self._cached_size = size
 
         screen.blit(self.apple_sprite, (self.x_position * size, self.y_position * size))
