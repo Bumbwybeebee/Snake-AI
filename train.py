@@ -149,9 +149,9 @@ def main():
 
                     current_time = time.time()
                     game_timestamps.append(current_time)
-                    while game_timestamps and game_timestamps[0] < current_time - 2:
+                    while game_timestamps and game_timestamps[0] < current_time - 10:
                         game_timestamps.popleft()
-                    gps = len(game_timestamps) / 2.0
+                    gps = len(game_timestamps) / 10.0
 
                     print(f"Game {games_played:6d} | eps {epsilon:.5f} | "
                           f"high {high_score} | {gps:.1f} games/s | avg {avg_score} | recent avg {recent_avg}")
