@@ -11,6 +11,7 @@ import game as snake_game
 import random
 import time
 from collections import deque
+import json
 
 device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Using device: {device}")
@@ -41,6 +42,7 @@ def main():
     games_played     = 0
     high_score       = 0
     game_timestamps  = deque()
+    stats_path       = './model/stats.json'
 
     if os.path.exists(saved_model_path):
         checkpoint   = torch.load(saved_model_path, map_location=device)
@@ -51,6 +53,14 @@ def main():
         print("loaded saved model")
     else:
         print("no saved model found")
+    if os.path.exists(stats_path):
+        with open(stats_path, 'r') as f:
+            stats = json.load(f)
+        avg_score = stats['avg_score']
+        recent_scores = deque(stats['recent_scores'], maxlen=2000)
+    else:
+        avg_score = 0
+        recent_scores = deque(maxlen=2000)
 
     trainer = ai.QTrainerCNN(model=model, lr=0.001, gamma=0.99)
     agent   = ai.AgentCNN(model=model, trainer=trainer)
@@ -123,6 +133,15 @@ def main():
                 if done:
                     if game.high_score > high_score:
                         high_score = game.high_score
+                    avg_score = (avg_score + (game.high_score - avg_score)/games_played)
+                    recent_scores.append(game.high_score)
+                    recent_avg = sum(recent_scores) / len(recent_scores) if recent_scores else 0
+                    stats = {
+                        'avg_score': avg_score,
+                        'recent_scores': list(recent_scores)
+                    }
+                    with open(stats_path, 'w') as f:
+                        json.dump(stats, f)
 
                     game.reset()
                     games_played += 1
@@ -135,7 +154,7 @@ def main():
                     gps = len(game_timestamps) / 2.0
 
                     print(f"Game {games_played:6d} | eps {epsilon:.5f} | "
-                          f"high {high_score} | {gps:.1f} games/s")
+                          f"high {high_score} | {gps:.1f} games/s | avg {avg_score} | recent avg {recent_avg}")
 
                     # Replay — identical to main.py's on-death train_long_memory
                     agent.train_long_memory()
