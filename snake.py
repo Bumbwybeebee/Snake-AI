@@ -1,7 +1,6 @@
 import pygame
 import numpy as np
 from enum import Enum, auto
-import os
 
 class Direction(Enum):
     LEFT  = (-1,  0)
@@ -34,7 +33,7 @@ class Snake:
         self.res = res
         self.alive = True
         self.has_turned = False
-        
+
         x_position = res // 2
         y_position = res // 2
 
@@ -42,11 +41,10 @@ class Snake:
         self.snake_head = np.array([x_position, y_position])
         self.snake_body = [self.snake_head.copy(), np.array([x_position-1, y_position]), np.array([x_position-2, y_position]), np.array([x_position-3, y_position])]
 
-    
+
     def grow(self):
-        #self.length += 1
         self.has_eaten = True
-        
+
     def move(self):
         self.has_turned = False
         self.snake_head += self.direction.value
@@ -72,12 +70,12 @@ class Snake:
     def is_alive(self) -> bool:
         if np.any(self.snake_head < 0) or np.any(self.snake_head >= self.res):
             self.alive = False
-        # 
+        #
         for segment in self.snake_body[1:]:
             if np.array_equal(segment, self.snake_head):
                 self.alive = False
         return self.alive
-    
+
     def find_segment_type(self, segment_index: int) -> SegmentType:
 
         if segment_index == 0:
@@ -91,7 +89,7 @@ class Snake:
                 return SegmentType.HEAD_LEFT
             elif head_vector == Direction.RIGHT.value:
                 return SegmentType.HEAD_RIGHT
-            
+
         elif segment_index == self.length - 1:
             tail_vector = tuple(self.snake_body[segment_index - 1] - self.snake_body[segment_index])
 
@@ -125,13 +123,22 @@ class Snake:
             return SegmentType.DOWN_LEFT
         elif neighbor_vectors == {Direction.DOWN.value, Direction.RIGHT.value}:
             return SegmentType.DOWN_RIGHT
-        
+
         # so that there are no errors about it not always returning something
         return SegmentType.HORIZONTAL
-    
+
     def draw(self, screen: pygame.Surface, cell_size, background: pygame.Surface):
-        screen.blit(background, (0, 0))
-        for segment_index in range(len(self.snake_body)):
-            segment_type = self.find_segment_type(segment_index).value
-            self.snake_sprite = pygame.image.load(segment_type)
-            screen.blit(self.snake_sprite, (self.snake_body[segment_index][0] * cell_size, self.snake_body[segment_index][1] * cell_size))
+            # Initialize a sprite cache on the snake if it doesn't exist yet
+            if not hasattr(self, 'sprite_cache'):
+                self.sprite_cache = {}
+
+            for segment_index in range(len(self.snake_body)):
+                segment_type_path = self.find_segment_type(segment_index).value
+                # If we haven't loaded this specific segment image yet, load it once
+                if segment_type_path not in self.sprite_cache:
+                    self.sprite_cache[segment_type_path] = pygame.image.load(segment_type_path).convert_alpha()
+
+                # Grab the pre-loaded image from our cache
+                sprite = self.sprite_cache[segment_type_path]
+
+                screen.blit(sprite, (self.snake_body[segment_index][0] * cell_size, self.snake_body[segment_index][1] * cell_size))
